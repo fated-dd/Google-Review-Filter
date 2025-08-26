@@ -6,6 +6,8 @@ from flask_cors import CORS
 tokenizer = AutoTokenizer.from_pretrained("saved_multilabel_model/")
 model = AutoModelForSequenceClassification.from_pretrained("saved_multilabel_model/")
 
+app = Flask(__name__)
+CORS(app)
 
 def predict_review(text):
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
@@ -19,8 +21,7 @@ def predict_review(text):
     }
 
 
-app = Flask(__name__)
-CORS(app)
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -30,11 +31,6 @@ def predict():
     print(label)
     return jsonify(label)
 
-@app.route('/')
-def predictdefault():
-    label = predict_review("I love this restaurant")
-    print(label)
-    return jsonify({"satisfied": label})
 
 if __name__ == '__main__':
     app.run(debug=True)
