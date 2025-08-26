@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+from flask_cors import CORS
+
 tokenizer = AutoTokenizer.from_pretrained("saved_multilabel_model/")
 model = AutoModelForSequenceClassification.from_pretrained("saved_multilabel_model/")
-from flask_cors import CORS
+
 
 def predict_review(text):
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
