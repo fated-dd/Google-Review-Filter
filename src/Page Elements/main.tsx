@@ -15,7 +15,7 @@ export default function Main() {
         e.preventDefault();
         setLoading(true); // NEW
         try {
-            const res = await fetch("http://127.0.0.1:5000/predict", {
+            const res = await fetch("https://google-review-filter.onrender.com/predict", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
