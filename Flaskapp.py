@@ -14,11 +14,12 @@ def predict_review(text):
     outputs = model(**inputs)
     probs = torch.sigmoid(outputs.logits).detach().numpy()[0]
     print(probs)
-    return {
-        "satisfied": int(probs[0] > 0.5),
-        "relevant": int(probs[1] > 0.5),
-        "spam": int(probs[2] > 0.5)
-    }
+    # return {
+    #     "satisfied": int(probs[0] > 0.5),
+    #     "relevant": int(probs[1] > 0.5),
+    #     "spam": int(probs[2] > 0.5)
+    # }
+    return probs
 
 
 
@@ -29,7 +30,7 @@ def predict():
     review = data.get("review" , 'No message received')
     label = predict_review(review)
     print(label)
-    return jsonify(label)
+    return jsonify({"satisfied":float(label[0]),"relevant":float(label[1]),"spam":float(label[2])})
 
 
 if __name__ == '__main__':
