@@ -20,7 +20,7 @@
 .env.production.local
 .env
 askgpt.py
-combined_reviews.csv
+
 generated_spam_reviews.csv
 gpt_reviews.csv
 gpt_spam_reviews.csv
