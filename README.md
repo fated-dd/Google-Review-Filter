@@ -1,5 +1,7 @@
 # Multi-Label Review Classification (BERT-based)
 
+Inspired by [`Tiktok TechJam 2025 Hackathon`](https://tiktoktechjam2025.devpost.com/) Question 1. Filtering the Noise: ML for Trustworthy Location Reviews
+
 This project builds a **multi-label text classification model** using [`bert-base-uncased`](https://huggingface.co/bert-base-uncased), capable of identifying whether a review expresses **satisfaction**, is **relevant**, or is likely **spam**.
 
 ## Features
