@@ -1,70 +1,179 @@
-# Getting Started with Create React App
+# Multi-Label Review Classification (BERT-based)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project builds a **multi-label text classification model** using [`bert-base-uncased`](https://huggingface.co/bert-base-uncased), capable of identifying whether a review expresses **satisfaction**, is **relevant**, or is likely **spam**.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- Fine-tuned BERT model for **multi-label classification**
+- Supports `satisfied`, `relevant`, and `spam` labels
+- Web-ready: easily integrable with Flask backend and React frontend
+- Trained on manually and synthetically labeled Google review data
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Dataset Format
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Input CSV file: `combined_reviews.csv`
 
-### `npm test`
+| text                          | satisfied | relevant | spam |
+|------------------------------|-----------|----------|------|
+| "Great place, would return!" | 1         | 1        | 0    |
+| "I don't like the place"     | 0         | 1        | 0    |
+| "Buy followers now..."       | 0         | 0        | 1    |
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Project Structure
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+├── multi_label_model_training.ipynb  *# Jupyter notebook for training*   
+├── combined_reviews.csv  *# Input dataset*  
+├── saved_multilabel_model/  *# Trained model & tokenizer*  
+│ ├── config.json  
+│ ├── pytorch_model.bin  
+│ └── tokenizer_config.json  
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## How to Train the Model
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. Install dependencies: ```bash pip install torch transformers scikit-learn pandas   ```   
+    
+2. Run training notebook (multi_label_model_training.ipynb) or convert code to Python script.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Key steps:
 
-## Learn More
+### Preprocess the Data
+By writing prompts to ChatGPT API like this and passing reviews 10 by 10 from the Original dataset [`Google Maps Restaurant Reviews`](https://www.kaggle.com/datasets/denizbilginn/google-maps-restaurant-reviews)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```python
+system_instruction = '''
+    I will give you 10 Google reviews with number labels. 
+    For each one, return a JSON object with the following keys: 
+    - "satisfied": 1 if the customer seems satisfied, 0 if not.
+    - "relevant": 1 if the review is relevant to the business/location, 0 if not.
+    - "spam": 1 if the review looks like spam or advertisement, 0 if not.
+    Return the result in this format: 
+    [ { "review": <number>, "firstword" : <The first word>, "satisfied": 1, "relevant": 1, "spam": 0 }, ... ]
+    for example: given "Review 5: Generally good."
+    return { "review": 5, "firstword" : Generally, "satisfied": 1, "relevant": 1, "spam": 0 }'''
+```
+ChatGPT API will return a JSON-format file to be directly appended to combined_reviews.csv.
+    
+   
+   
+Data will be loaded and sliced by
+```python
+df = pd.read_csv("combined_reviews.csv")
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+texts = df["text"].astype(str).tolist()
+labels = df[["satisfied", "relevant", "spam"]].astype(int).values.tolist()
+```
 
-### Code Splitting
+###  Tokenize
+```python
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+encodings = tokenizer(texts, truncation=True, padding=True, max_length=512)
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### Feed into transformer
+```python
+from transformers import TrainingArguments, Trainer
 
-### Analyzing the Bundle Size
+training_args = TrainingArguments(
+    output_dir="./results",
+    num_train_epochs=2,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
+    logging_dir="./logs",
+    logging_steps=10,
+    eval_strategy="epoch",
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+    metric_for_best_model="eval_loss"
+)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=val_dataset,
+)
+trainer.train()
+```
 
-### Making a Progressive Web App
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+###  Save the trained model
+```python
+model.save_pretrained("saved_multilabel_model/")
+tokenizer.save_pretrained("saved_multilabel_model/")
+```
 
-### Advanced Configuration
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Inference Example
 
-### Deployment
+```python
+from flask import Flask, request, jsonify
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+from flask_cors import CORS
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+tokenizer = AutoTokenizer.from_pretrained("saved_multilabel_model/")
+model = AutoModelForSequenceClassification.from_pretrained("saved_multilabel_model/")
 
-### `npm run build` fails to minify
+app = Flask(__name__)
+CORS(app)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+def predict_review(text):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    outputs = model(**inputs)
+    probs = torch.sigmoid(outputs.logits).detach().numpy()[0]
+    print(probs)
+
+    return probs
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.get_json()
+    review = data.get("review" , 'No message received')
+    label = predict_review(review)
+    print(label)
+    return jsonify({"satisfied":float(label[0]),"relevant":float(label[1]),"spam":float(label[2])})
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
+```
+
+---
+
+## Frontend & Backend
+
+The model is integrated into:
+
+- Flask API for backend inference
+
+- React UI for real-time input and prediction
+
+- Backend Deployment on [`Render`](https://google-review-filter-1.onrender.com), Frontend Deployment on [`Vercel`](https://google-review-filter.vercel.app/)
+
+---
+
+## Metrics
+- Loss: Binary Cross Entropy
+
+- Evaluation Strategy: Epoch-based
+
+- Model Type: BERT with Sigmoid for multi-label output
+
+---
+
+## Author
+
+- Made by [`Zhongmin`](https://github.com/fated-dd)
+- Based on Hugging Face Transformers and PyTorch.
