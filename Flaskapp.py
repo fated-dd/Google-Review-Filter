@@ -14,14 +14,8 @@ def predict_review(text):
     outputs = model(**inputs)
     probs = torch.sigmoid(outputs.logits).detach().numpy()[0]
     print(probs)
-    # return {
-    #     "satisfied": int(probs[0] > 0.5),
-    #     "relevant": int(probs[1] > 0.5),
-    #     "spam": int(probs[2] > 0.5)
-    # }
+
     return probs
-
-
 
 
 @app.route('/predict', methods=['POST'])
